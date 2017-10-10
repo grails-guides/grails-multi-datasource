@@ -51,8 +51,10 @@ include::{sourceDir}/grails-app/services/demo/KeywordService.groovy[]
 
 <1> Specify the data source name with `withConnection` for a query.
 
-You could have written the `books` query with a dynamic finder instead of a _where query_.
+You could have written the `books` query with a dynamic finder or a criteria query instead of a _where query_.
 
 Where query: `Keyword.where {}.withConnection('books').list()`
 
 Dynamic finder: `Keyword.books.findAll()`
+
+Critiera: `Keyword.books.createCriteria().list { }`
