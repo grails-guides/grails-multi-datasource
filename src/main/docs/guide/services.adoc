@@ -57,4 +57,4 @@ Where query: `Keyword.where {}.withConnection('books').list()`
 
 Dynamic finder: `Keyword.books.findAll()`
 
-Critiera: `Keyword.books.createCriteria().list { }`
+Criteria: `Keyword.books.createCriteria().list { }`
