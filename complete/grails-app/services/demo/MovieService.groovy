@@ -9,7 +9,7 @@ import groovy.util.logging.Slf4j
 @CompileStatic
 class MovieService {
 
-    @Transactional
+    @Transactional('movies')
     Movie addMovie(String title, List<String> keywords) {
         Movie movie = new Movie(title: title)
         if ( keywords ) {

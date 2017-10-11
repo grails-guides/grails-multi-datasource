@@ -6,6 +6,6 @@ class Keyword {
     String name
 
     static mapping = {
-        datasources([ConnectionSource.DEFAULT, 'books']) // <1>
+        datasources(['movies', 'books']) // <1>
     }
 }
