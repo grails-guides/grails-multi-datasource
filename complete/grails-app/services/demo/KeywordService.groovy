@@ -12,7 +12,7 @@ class KeywordService {
         booksQuery().list()
     }
 
-    @ReadOnly
+    @ReadOnly('movies')
     List<Keyword> findAllDefaultDataSourceKeywords() {
         defaultDataSourceQuery().list()
     }
