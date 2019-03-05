@@ -1,8 +1,13 @@
 package demo
 
-import grails.plugins.rest.client.RestBuilder
-import grails.plugins.rest.client.RestResponse
+
 import grails.testing.mixin.integration.Integration
+import grails.testing.spock.OnceBefore
+import groovy.json.JsonSlurper
+import io.micronaut.http.HttpRequest
+import io.micronaut.http.HttpResponse
+import io.micronaut.http.HttpStatus
+import io.micronaut.http.client.HttpClient
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -10,153 +15,151 @@ import spock.lang.Specification
 class MultipleDataSourceSpec extends Specification {
 
     @Shared
-    RestBuilder rest = new RestBuilder()
+    HttpClient client
 
-    private RestResponse saveResource(String resource, String itemTitle, List<String> itemKeywords) {
-        rest.post("http://localhost:${serverPort}/${resource}") {
-            accept('application/json')
-            contentType('application/json')
-            json {
-                title = itemTitle
-                keywords = itemKeywords
-            }
-        }
+    @Shared
+    JsonSlurper jsonSlurper = new JsonSlurper()
+
+    @OnceBefore
+    void init() {
+        String baseUrl = "http://localhost:$serverPort"
+        this.client  = HttpClient.create(baseUrl.toURL())
     }
 
-    private RestResponse deleteResource(String resource, String itemTitle) {
-        rest.delete("http://localhost:${serverPort}/${resource}") {
-            accept('application/json')
-            contentType('application/json')
-            json {
-                title = itemTitle
-            }
-        }
+    private HttpResponse<Map> saveResource(String resource, String itemTitle, List<String> itemKeywords) {
+        HttpRequest request = HttpRequest.POST("/$resource", [title: itemTitle, keywords: itemKeywords])
+        client.toBlocking().exchange(request, Map)
     }
 
-    private RestResponse fetchResource(String resource) {
-        rest.get("http://localhost:${serverPort}/${resource}") {
-            accept('application/json')
-        }
+    private HttpResponse<Map> deleteResource(String resource, String itemTitle) {
+        HttpRequest request = HttpRequest.DELETE("/$resource", [title: itemTitle])
+        client.toBlocking().exchange(request, Map)
     }
 
-    private RestResponse resourceKeywords(String resource) {
-        rest.get("http://localhost:${serverPort}/${resource}/keywords") {
-            accept('application/json')
-        }
+    private HttpResponse<String> fetchResource(String resource) {
+        HttpRequest request = HttpRequest.GET("/$resource")
+        client.toBlocking().exchange(request, String)
+    }
+
+    private HttpResponse<Map> resourceKeywords(String resource) {
+        HttpRequest request = HttpRequest.GET("/$resource/keywords")
+        client.toBlocking().exchange(request, Map)
     }
 
     def "Test Multi-Datasource support saving and retrieving books and movies"() {
         when:
-        RestResponse resp = saveResource('book', 'Change Agent', ['dna', 'sci-fi'])
+        HttpResponse<Map> resp = saveResource('book', 'Change Agent', ['dna', 'sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('book', 'Influx', ['sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('book', 'Kill Decision', ['drone', 'sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('book', 'Freedom (TM)', ['sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('book', 'Daemon', ['sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('movie', 'Pirates of Silicon Valley', ['apple', 'microsoft', 'technology'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = saveResource('movie', 'Inception', ['sci-fi'])
 
         then:
-        resp.statusCode.value() == 201
+        resp.status == HttpStatus.CREATED
 
         when:
         resp = fetchResource('book')
 
         then:
-        resp.statusCode.value() == 200
-        resp.json.collect { it.title }.sort() == ['Change Agent', 'Daemon', 'Freedom (TM)', 'Influx', 'Kill Decision']
+        resp.status == HttpStatus.OK
+        List<Map> booksMap = jsonSlurper.parseText(resp.body())
+        booksMap.collect { it.title }.sort() == ['Change Agent', 'Daemon', 'Freedom (TM)', 'Influx', 'Kill Decision']
 
         when:
         resp = fetchResource('movie')
 
         then:
-        resp.statusCode.value() == 200
-        resp.json.collect { it.title }.sort() == ['Inception', 'Pirates of Silicon Valley']
+        resp.status == HttpStatus.OK
+        List<Map> moviesMap = jsonSlurper.parseText(resp.body())
+        moviesMap.collect { it.title }.sort() == ['Inception', 'Pirates of Silicon Valley']
 
         when:
         resp = resourceKeywords('book')
 
         then:
-        resp.statusCode.value() == 200
-        resp.json.keywords == ['dna', 'drone', 'sci-fi']
+        resp.status == HttpStatus.OK
+        resp.body().keywords == ['dna', 'drone', 'sci-fi']
+
 
         when:
         resp = resourceKeywords('movie')
 
         then:
-        resp.statusCode.value() == 200
-        resp.json.keywords == ['apple', 'microsoft', 'sci-fi', 'technology']
-
+        resp.status == HttpStatus.OK
+        resp.body().keywords == ['apple', 'microsoft', 'sci-fi', 'technology']
 
         when:
         resp = deleteResource('book', 'Change Agent')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('book', 'Influx')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('book', 'Kill Decision')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('book', 'Freedom (TM)')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('book', 'Daemon')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('movie', 'Pirates of Silicon Valley')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
 
         when:
         resp = deleteResource('movie', 'Inception')
 
         then:
-        resp.statusCode.value() == 204
+        resp.status == HttpStatus.NO_CONTENT
     }
 }

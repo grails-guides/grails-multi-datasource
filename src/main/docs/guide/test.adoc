@@ -1,4 +1,4 @@
-Add _grails-datastore-rest-client_ as a _testCompile_ dependency:
+Add _micronaut-http-client_ as a _testCompile_ dependency:
 
 [source,groovy]
 .build.gradle
