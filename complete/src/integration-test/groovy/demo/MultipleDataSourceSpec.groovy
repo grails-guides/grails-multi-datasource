@@ -69,16 +69,14 @@ class MultipleDataSourceSpec extends Specification {
 
         then:
         resourceResp.status == HttpStatus.OK
-        List<Map> booksMap = resourceResp.body()
-        booksMap.collect { it.title }.sort() == books.collect { it.title }.sort()
+        resourceResp.body().collect { it.title }.sort() == books.collect { it.title }.sort()
 
         when:
         resourceResp = fetchResource('movie')
 
         then:
         resourceResp.status == HttpStatus.OK
-        List<Map> moviesMap = resourceResp.body()
-        moviesMap.collect { it.title }.sort() == movies.collect { it.title }.sort()
+        resourceResp.body().collect { it.title }.sort() == movies.collect { it.title }.sort()
 
         when:
         HttpResponse<Map> resp = resourceKeywords('book')

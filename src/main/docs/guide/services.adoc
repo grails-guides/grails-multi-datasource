@@ -8,7 +8,6 @@ include::{sourceDir}/grails-app/services/demo/MovieDataService.groovy[]
 
 <1> you can specify query joins using the `@Join` annotation.
 
-WARNING: If you used `@ReadOnly` instead of `@ReadOnly('books')` you will get the exception: `org.hibernate.HibernateException: No Session found for current thread`
 
 Add a regular service:
 
@@ -27,6 +26,7 @@ include::{sourceDir}/grails-app/services/demo/BookDataService.groovy[]
 <1> Specify the data source name in `@Transactional` and `@ReadOnly` annotations.
 <2> you can specify query joins using the `@Join` annotation.
 
+WARNING: If you used `@ReadOnly` instead of `@ReadOnly('books')` you will get the exception: `org.hibernate.HibernateException: No Session found for current thread`
 
 Add a regular service:
 

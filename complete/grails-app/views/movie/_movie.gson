@@ -6,5 +6,5 @@ model {
 
 json {
     title movie.title
-    keywords movie.keywords*.name
+    keywords movie.keywords*.name.unique().sort()
 }
