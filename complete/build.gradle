@@ -62,7 +62,7 @@ dependencies {
     testCompile "org.mockito:mockito-core"
     testCompile "org.grails:grails-web-testing-support"
 //tag::restclient[]
-    testCompile "io.micronaut:micronaut-http-client:1.0.2"
+    testCompile "io.micronaut:micronaut-http-client"
 //end::restclient[]
 }
 
