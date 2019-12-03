@@ -1,9 +1,8 @@
 package demo
 
-
 import grails.testing.mixin.integration.Integration
 import grails.testing.spock.OnceBefore
-import groovy.json.JsonSlurper
+import io.micronaut.core.type.Argument
 import io.micronaut.http.HttpRequest
 import io.micronaut.http.HttpResponse
 import io.micronaut.http.HttpStatus
@@ -17,9 +16,6 @@ class MultipleDataSourceSpec extends Specification {
     @Shared
     HttpClient client
 
-    @Shared
-    JsonSlurper jsonSlurper = new JsonSlurper()
-
     @OnceBefore
     void init() {
         String baseUrl = "http://localhost:$serverPort"
@@ -31,14 +27,14 @@ class MultipleDataSourceSpec extends Specification {
         client.toBlocking().exchange(request, Map)
     }
 
-    private HttpResponse<Map> deleteResource(String resource, String itemTitle) {
+    private HttpResponse deleteResource(String resource, String itemTitle) {
         HttpRequest request = HttpRequest.DELETE("/$resource", [title: itemTitle])
-        client.toBlocking().exchange(request, Map)
+        client.toBlocking().exchange(request)
     }
 
-    private HttpResponse<String> fetchResource(String resource) {
+    private HttpResponse<List<Map>> fetchResource(String resource) {
         HttpRequest request = HttpRequest.GET("/$resource")
-        client.toBlocking().exchange(request, String)
+        client.toBlocking().exchange(request, Argument.of(List, Map))
     }
 
     private HttpResponse<Map> resourceKeywords(String resource) {
@@ -47,119 +43,63 @@ class MultipleDataSourceSpec extends Specification {
     }
 
     def "Test Multi-Datasource support saving and retrieving books and movies"() {
+        given:
+        List<Map> books = [
+                [title: 'Change Agent', tags: ['dna', 'sci-fi']],
+                [title: 'Influx', tags: ['sci-fi']],
+                [title: 'Kill Decision', tags: ['drone', 'sci-fi']],
+                [title: 'Freedom (TM)', tags: ['sci-fi']],
+                [title: 'Daemon', tags: ['sci-fi']],
+        ]
+        List<Map> movies = [
+                [title: 'Pirates of Silicon Valley', tags: ['apple', 'microsoft', 'technology']],
+                [title: 'Inception', tags: ['sci-fi']],
+        ]
+        books.each { book ->
+            HttpResponse<Map> resp = saveResource('book', book.title as String, book.tags as List<String>)
+            assert resp.status == HttpStatus.CREATED
+        }
+        movies.each { movie ->
+            HttpResponse<Map> resp = saveResource('movie', movie.title as String, movie.tags as List<String>)
+            assert resp.status == HttpStatus.CREATED
+        }
+
         when:
-        HttpResponse<Map> resp = saveResource('book', 'Change Agent', ['dna', 'sci-fi'])
+        HttpResponse<List<Map>> resourceResp = fetchResource('book')
 
         then:
-        resp.status == HttpStatus.CREATED
+        resourceResp.status == HttpStatus.OK
+        List<Map> booksMap = resourceResp.body()
+        booksMap.collect { it.title }.sort() == books.collect { it.title }.sort()
 
         when:
-        resp = saveResource('book', 'Influx', ['sci-fi'])
+        resourceResp = fetchResource('movie')
 
         then:
-        resp.status == HttpStatus.CREATED
+        resourceResp.status == HttpStatus.OK
+        List<Map> moviesMap = resourceResp.body()
+        moviesMap.collect { it.title }.sort() == movies.collect { it.title }.sort()
 
         when:
-        resp = saveResource('book', 'Kill Decision', ['drone', 'sci-fi'])
-
-        then:
-        resp.status == HttpStatus.CREATED
-
-        when:
-        resp = saveResource('book', 'Freedom (TM)', ['sci-fi'])
-
-        then:
-        resp.status == HttpStatus.CREATED
-
-        when:
-        resp = saveResource('book', 'Daemon', ['sci-fi'])
-
-        then:
-        resp.status == HttpStatus.CREATED
-
-        when:
-        resp = saveResource('movie', 'Pirates of Silicon Valley', ['apple', 'microsoft', 'technology'])
-
-        then:
-        resp.status == HttpStatus.CREATED
-
-        when:
-        resp = saveResource('movie', 'Inception', ['sci-fi'])
-
-        then:
-        resp.status == HttpStatus.CREATED
-
-        when:
-        resp = fetchResource('book')
+        HttpResponse<Map> resp = resourceKeywords('book')
 
         then:
         resp.status == HttpStatus.OK
-        List<Map> booksMap = jsonSlurper.parseText(resp.body())
-        booksMap.collect { it.title }.sort() == ['Change Agent', 'Daemon', 'Freedom (TM)', 'Influx', 'Kill Decision']
-
-        when:
-        resp = fetchResource('movie')
-
-        then:
-        resp.status == HttpStatus.OK
-        List<Map> moviesMap = jsonSlurper.parseText(resp.body())
-        moviesMap.collect { it.title }.sort() == ['Inception', 'Pirates of Silicon Valley']
-
-        when:
-        resp = resourceKeywords('book')
-
-        then:
-        resp.status == HttpStatus.OK
-        resp.body().keywords == ['dna', 'drone', 'sci-fi']
-
+        (resp.body().keywords as List<String>).sort() == books.collect { it.tags }.flatten().unique().sort()
 
         when:
         resp = resourceKeywords('movie')
 
         then:
         resp.status == HttpStatus.OK
-        resp.body().keywords == ['apple', 'microsoft', 'sci-fi', 'technology']
+        (resp.body().keywords as List<String>).sort() == movies.collect { it.tags }.flatten().unique().sort()
 
-        when:
-        resp = deleteResource('book', 'Change Agent')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('book', 'Influx')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('book', 'Kill Decision')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('book', 'Freedom (TM)')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('book', 'Daemon')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('movie', 'Pirates of Silicon Valley')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
-
-        when:
-        resp = deleteResource('movie', 'Inception')
-
-        then:
-        resp.status == HttpStatus.NO_CONTENT
+        cleanup:
+        books.each { book ->
+            assert deleteResource('book', book.title as String).status() == HttpStatus.NO_CONTENT
+        }
+        movies.each { movie ->
+            assert deleteResource('movie', movie.title as String).status() == HttpStatus.NO_CONTENT
+        }
     }
 }
