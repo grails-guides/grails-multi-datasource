@@ -60,8 +60,8 @@ class MultipleDataSourceSpec extends Specification {
             assert resp.status == HttpStatus.CREATED
         }
         movies.each { movie ->
-            HttpResponse<Map> resp = saveResource('movie', movie.title as String, movie.tags as List<String>)
-            assert resp.status == HttpStatus.CREATED
+            HttpResponse<Map> resp1 = saveResource('movie', movie.title as String, movie.tags as List<String>)
+            assert resp1.status == HttpStatus.CREATED
         }
 
         when:
@@ -79,18 +79,18 @@ class MultipleDataSourceSpec extends Specification {
         resourceResp.body().collect { it.title }.sort() == movies.collect { it.title }.sort()
 
         when:
-        HttpResponse<Map> resp = resourceKeywords('book')
+        HttpResponse<Map> resp2 = resourceKeywords('book')
 
         then:
-        resp.status == HttpStatus.OK
-        (resp.body().keywords as List<String>).sort() == books.collect { it.tags }.flatten().unique().sort()
+        resp2.status == HttpStatus.OK
+        (resp2.body().keywords as List<String>).sort() == books.collect { it.tags }.flatten().unique().sort()
 
         when:
-        resp = resourceKeywords('movie')
+        resp2 = resourceKeywords('movie')
 
         then:
-        resp.status == HttpStatus.OK
-        (resp.body().keywords as List<String>).sort() == movies.collect { it.tags }.flatten().unique().sort()
+        resp2.status == HttpStatus.OK
+        (resp2.body().keywords as List<String>).sort() == movies.collect { it.tags }.flatten().unique().sort()
 
         cleanup:
         books.each { book ->
