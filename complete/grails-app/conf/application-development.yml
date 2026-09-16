@@ -1,0 +1,6 @@
+---
+# Development-only overrides (loaded when spring.profiles.active=development)
+logging:
+    level:
+        demo: DEBUG
+        org.hibernate.SQL: DEBUG

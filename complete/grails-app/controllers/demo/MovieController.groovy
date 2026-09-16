@@ -5,7 +5,7 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class MovieController {
 
-    static allowedMethods = [save: 'POST', index: 'GET']
+    static allowedMethods = [save: 'POST', index: 'GET', delete: 'DELETE']
 
     static responseFormats = ['json']
 

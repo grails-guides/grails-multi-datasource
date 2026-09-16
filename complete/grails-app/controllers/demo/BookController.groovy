@@ -1,13 +1,11 @@
 package demo
 
-import grails.gorm.transactions.Transactional
 import groovy.transform.CompileStatic
 
 @CompileStatic
-@Transactional
 class BookController {
 
-    static allowedMethods = [save: 'POST', index: 'GET']
+    static allowedMethods = [save: 'POST', index: 'GET', delete: 'DELETE']
 
     static responseFormats = ['json']
 

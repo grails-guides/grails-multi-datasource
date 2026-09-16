@@ -1,48 +1,61 @@
 package demo
 
 import grails.testing.mixin.integration.Integration
-import grails.testing.spock.OnceBefore
-import io.micronaut.core.type.Argument
-import io.micronaut.http.HttpRequest
-import io.micronaut.http.HttpResponse
-import io.micronaut.http.HttpStatus
-import io.micronaut.http.client.HttpClient
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import spock.lang.Shared
 import spock.lang.Specification
+
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 
 @Integration
 class MultipleDataSourceSpec extends Specification {
 
     @Shared
-    HttpClient client
+    HttpClient client = HttpClient.newHttpClient()
 
-    @OnceBefore
-    void init() {
-        String baseUrl = "http://localhost:$serverPort"
-        this.client  = HttpClient.create(baseUrl.toURL())
+    private HttpResponse<String> saveResource(String resource, String itemTitle, List<String> itemKeywords) {
+        String body = JsonOutput.toJson([title: itemTitle, keywords: itemKeywords])
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:${serverPort}/${resource}"))
+                .header('Content-Type', 'application/json')
+                .header('Accept', 'application/json')
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+        client.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private HttpResponse<Map> saveResource(String resource, String itemTitle, List<String> itemKeywords) {
-        HttpRequest request = HttpRequest.POST("/$resource", [title: itemTitle, keywords: itemKeywords])
-        client.toBlocking().exchange(request, Map)
+    private HttpResponse<String> deleteResource(String resource, String itemTitle) {
+        String encoded = URLEncoder.encode(itemTitle, 'UTF-8')
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:${serverPort}/${resource}?title=${encoded}"))
+                .header('Accept', 'application/json')
+                .DELETE()
+                .build()
+        client.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private HttpResponse deleteResource(String resource, String itemTitle) {
-        HttpRequest request = HttpRequest.DELETE("/$resource", [title: itemTitle])
-        client.toBlocking().exchange(request)
+    private HttpResponse<String> fetchResource(String resource) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:${serverPort}/${resource}"))
+                .header('Accept', 'application/json')
+                .GET()
+                .build()
+        client.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private HttpResponse<List<Map>> fetchResource(String resource) {
-        HttpRequest request = HttpRequest.GET("/$resource")
-        client.toBlocking().exchange(request, Argument.of(List, Map))
+    private HttpResponse<String> resourceKeywords(String resource) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:${serverPort}/${resource}/keywords"))
+                .header('Accept', 'application/json')
+                .GET()
+                .build()
+        client.send(request, HttpResponse.BodyHandlers.ofString())
     }
 
-    private HttpResponse<Map> resourceKeywords(String resource) {
-        HttpRequest request = HttpRequest.GET("/$resource/keywords")
-        client.toBlocking().exchange(request, Map)
-    }
-
-    def "Test Multi-Datasource support saving and retrieving books and movies"() {
+    def 'Test Multi-Datasource support saving and retrieving books and movies'() {
         given:
         List<Map> books = [
                 [title: 'Change Agent', tags: ['dna', 'sci-fi']],
@@ -56,48 +69,52 @@ class MultipleDataSourceSpec extends Specification {
                 [title: 'Inception', tags: ['sci-fi']],
         ]
         books.each { book ->
-            HttpResponse<Map> resp = saveResource('book', book.title as String, book.tags as List<String>)
-            assert resp.status == HttpStatus.CREATED
+            HttpResponse<String> saveResp = saveResource('book', book.title as String, book.tags as List<String>)
+            assert saveResp.statusCode() == 201
         }
         movies.each { movie ->
-            HttpResponse<Map> resp1 = saveResource('movie', movie.title as String, movie.tags as List<String>)
-            assert resp1.status == HttpStatus.CREATED
+            HttpResponse<String> saveResp = saveResource('movie', movie.title as String, movie.tags as List<String>)
+            assert saveResp.statusCode() == 201
         }
 
         when:
-        HttpResponse<List<Map>> resourceResp = fetchResource('book')
+        HttpResponse<String> resourceResp = fetchResource('book')
+        List bookBody = new JsonSlurper().parseText(resourceResp.body()) as List
 
         then:
-        resourceResp.status == HttpStatus.OK
-        resourceResp.body().collect { it.title }.sort() == books.collect { it.title }.sort()
+        resourceResp.statusCode() == 200
+        bookBody.collect { it.title }.sort() == books.collect { it.title }.sort()
 
         when:
         resourceResp = fetchResource('movie')
+        List movieBody = new JsonSlurper().parseText(resourceResp.body()) as List
 
         then:
-        resourceResp.status == HttpStatus.OK
-        resourceResp.body().collect { it.title }.sort() == movies.collect { it.title }.sort()
+        resourceResp.statusCode() == 200
+        movieBody.collect { it.title }.sort() == movies.collect { it.title }.sort()
 
         when:
-        HttpResponse<Map> resp2 = resourceKeywords('book')
+        HttpResponse<String> resp = resourceKeywords('book')
+        Map bookKeywords = new JsonSlurper().parseText(resp.body()) as Map
 
         then:
-        resp2.status == HttpStatus.OK
-        (resp2.body().keywords as List<String>).sort() == books.collect { it.tags }.flatten().unique().sort()
+        resp.statusCode() == 200
+        (bookKeywords.keywords as List<String>).sort() == books.collect { it.tags }.flatten().unique().sort()
 
         when:
-        resp2 = resourceKeywords('movie')
+        resp = resourceKeywords('movie')
+        Map movieKeywords = new JsonSlurper().parseText(resp.body()) as Map
 
         then:
-        resp2.status == HttpStatus.OK
-        (resp2.body().keywords as List<String>).sort() == movies.collect { it.tags }.flatten().unique().sort()
+        resp.statusCode() == 200
+        (movieKeywords.keywords as List<String>).sort() == movies.collect { it.tags }.flatten().unique().sort()
 
         cleanup:
         books.each { book ->
-            assert deleteResource('book', book.title as String).status() == HttpStatus.NO_CONTENT
+            assert deleteResource('book', book.title as String).statusCode() == 204
         }
         movies.each { movie ->
-            assert deleteResource('movie', movie.title as String).status() == HttpStatus.NO_CONTENT
+            assert deleteResource('movie', movie.title as String).statusCode() == 204
         }
     }
 }

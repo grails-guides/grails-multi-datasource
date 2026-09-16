@@ -1,0 +1,7 @@
+# Document how this app was generated (re-run when Forge/CLI is available):
+# grails create-app demo --profile=rest-api --inplace
+#   -f h2,views-json,spock
+applicationType: rest-api
+defaultPackage: demo
+name: demo
+grailsVersion: 8.0.0-M5
