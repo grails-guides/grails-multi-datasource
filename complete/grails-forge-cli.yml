@@ -4,4 +4,4 @@
 applicationType: rest-api
 defaultPackage: demo
 name: demo
-grailsVersion: 8.0.0-M5
+grailsVersion: 8.0.0
